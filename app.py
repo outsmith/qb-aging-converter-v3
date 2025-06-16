@@ -94,3 +94,15 @@ if st.button("🔁 Reset Everything"):
     st.session_state.credits = []
     st.session_state.upload_ready = False
     st.success("Session cleared.")
+
+# Live preview of current session data
+if st.session_state.bills:
+    st.subheader("🧾 All Bills Added So Far")
+    all_bills = pd.concat(st.session_state.bills, ignore_index=True)
+    st.dataframe(all_bills)
+
+if st.session_state.credits:
+    st.subheader("📘 All Vendor Credits Added So Far")
+    all_credits = pd.concat(st.session_state.credits, ignore_index=True)
+    st.dataframe(all_credits)
+
