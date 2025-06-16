@@ -65,10 +65,9 @@ def process_uploaded_file(uploaded_file, class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Reset upload interface and force rerun
+        # Flag to hide input and show "Add Another" button
         st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
-        st.experimental_rerun()
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
