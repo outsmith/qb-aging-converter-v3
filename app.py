@@ -14,6 +14,13 @@ if "reset_uploader" not in st.session_state:
     st.session_state.reset_uploader = 0
 if "show_upload_ui" not in st.session_state:
     st.session_state.show_upload_ui = True
+if "pending_reset" not in st.session_state:
+    st.session_state.pending_reset = False
+
+# ---------- IMMEDIATE RERUN ON RESET ----------
+if st.session_state.pending_reset:
+    st.session_state.pending_reset = False
+    st.experimental_rerun()
 
 
 # ---------- PROCESSING FUNCTION ----------
@@ -65,15 +72,16 @@ def process_uploaded_file(uploaded_file, class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Hide form and increment reset flag
+        # Prepare to rerun and reset form
         st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
+        st.session_state.pending_reset = True
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
 
-# ---------- UPLOAD FORM ----------
+# ---------- UPLOAD INTERFACE ----------
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
@@ -110,7 +118,7 @@ else:
         st.session_state.show_upload_ui = True
 
 
-# ---------- PREVIEW ----------
+# ---------- LIVE PREVIEW ----------
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -140,10 +148,10 @@ if st.session_state.credits:
     )
 
 
-# ---------- RESET ----------
+# ---------- RESET EVERYTHING ----------
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
     st.session_state.reset_uploader = 0
     st.session_state.show_upload_ui = True
-    st.success("Session cleared.")
+    st.session_state.pending_reset = True
