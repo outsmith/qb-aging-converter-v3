@@ -14,12 +14,10 @@ if "reset_uploader" not in st.session_state:
     st.session_state.reset_uploader = 0
 if "ready_for_class" not in st.session_state:
     st.session_state.ready_for_class = False
-if "upload_complete" not in st.session_state:
-    st.session_state.upload_complete = False
-if "custom_class" not in st.session_state:
-    st.session_state.custom_class = ""
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
+if "class_submitted" not in st.session_state:
+    st.session_state.class_submitted = False
 
 
 # ---------- PROCESSING FUNCTION ----------
@@ -76,11 +74,10 @@ def process_uploaded_file(class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Reset for next round
+        # Full reset for next round
         st.session_state.uploaded_file = None
-        st.session_state.custom_class = ""
         st.session_state.ready_for_class = False
-        st.session_state.upload_complete = True
+        st.session_state.class_submitted = False
         st.session_state.reset_uploader += 1
 
     except Exception as e:
@@ -94,7 +91,7 @@ if st.session_state.bills or st.session_state.credits:
 uploaded_file = st.file_uploader(
     "Upload Excel Aging Report",
     type="xlsx",
-    key="file_upload_" + str(st.session_state.reset_uploader)
+    key="uploader_" + str(st.session_state.reset_uploader)
 )
 
 if uploaded_file:
@@ -104,28 +101,30 @@ if uploaded_file:
 
 # ---------- CLASS SELECTION ----------
 if st.session_state.ready_for_class:
-    class_key = "selected_class_" + str(st.session_state.reset_uploader)
-    custom_key = "custom_class_" + str(st.session_state.reset_uploader)
+    class_options = ["Auto Perfection", "KHI", "Land Quest", "Other"]
+    class_key = "class_choice_" + str(st.session_state.reset_uploader)
+    custom_key = "custom_input_" + str(st.session_state.reset_uploader)
 
-    selected_class = st.selectbox(
+    selected_class = st.radio(
         "Select class for this aging:",
-        options=["Auto Perfection", "KHI", "Land Quest", "Other"],
-        key=class_key
+        options=class_options,
+        key=class_key,
+        horizontal=True
     )
 
-    if st.session_state[class_key] == "Other":
-        st.text_input("Enter custom class name:", key=custom_key)
+    custom_class_input = ""
+    if selected_class == "Other":
+        custom_class_input = st.text_input("Enter custom class name:", key=custom_key)
 
     if st.button("✅ Submit Aging"):
-        if st.session_state[class_key] == "Other":
-            custom_val = st.session_state.get(custom_key, "").strip()
-            if custom_val:
-                process_uploaded_file(custom_val)
-            else:
+        st.session_state.class_submitted = True
+        if selected_class == "Other":
+            if not custom_class_input.strip():
                 st.warning("Please enter a custom class name.")
+            else:
+                process_uploaded_file(custom_class_input.strip())
         else:
-            process_uploaded_file(st.session_state[class_key])
-
+            process_uploaded_file(selected_class)
 
 
 # ---------- LIVE PREVIEW ----------
@@ -165,6 +164,5 @@ if st.button("🔁 Reset Everything"):
     st.session_state.uploaded_file = None
     st.session_state.reset_uploader = 0
     st.session_state.ready_for_class = False
-    st.session_state.upload_complete = False
-    st.session_state.custom_class = ""
+    st.session_state.class_submitted = False
     st.success("Session cleared.")
