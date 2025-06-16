@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from streamlit import experimental_rerun
 
 st.set_page_config(page_title="Multi-Client AP Aging")
 
@@ -65,15 +66,16 @@ def process_uploaded_file(uploaded_file, class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Reset upload interface
+        # Reset upload interface and force rerun
         st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
+        experimental_rerun()
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
 
-# ---------- MULTI-UPLOAD LOOP ----------
+# ---------- UPLOAD INTERFACE ----------
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
@@ -107,7 +109,6 @@ if st.session_state.show_upload_ui:
                 process_uploaded_file(uploaded_file, selected_class)
 
 else:
-    # Reset UI flag to allow next upload
     if st.button("➕ Add Another Aging"):
         st.session_state.show_upload_ui = True
 
@@ -124,7 +125,7 @@ if st.session_state.credits:
     st.dataframe(all_credits)
 
 
-# ---------- DOWNLOAD BUTTONS ----------
+# ---------- DOWNLOADS ----------
 if st.session_state.bills:
     st.download_button(
         "📥 Download All Bills",
@@ -142,7 +143,7 @@ if st.session_state.credits:
     )
 
 
-# ---------- RESET EVERYTHING ----------
+# ---------- RESET BUTTON ----------
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
