@@ -5,7 +5,7 @@ st.set_page_config(page_title="Multi-Client AP Aging")
 
 st.title("📂 Multi-Client AP Aging → Consolidated Bill & Credit Converter")
 
-# Initialize memory
+# Initialize session state
 if "bills" not in st.session_state:
     st.session_state.bills = []
 if "credits" not in st.session_state:
@@ -15,7 +15,7 @@ if "current_file" not in st.session_state:
 if "current_class" not in st.session_state:
     st.session_state.current_class = ""
 
-# Function to process uploaded aging
+# Processing function
 def process_uploaded_file():
     uploaded_file = st.session_state.current_file
     class_input = st.session_state.current_class.strip()
@@ -26,14 +26,17 @@ def process_uploaded_file():
     try:
         df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
 
+        # Rename "Select" column if unnamed
         if "Unnamed: 9" in df.columns:
             df.rename(columns={"Unnamed: 9": "Select"}, inplace=True)
 
+        # Remove extra columns and rows
         df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
         df = df[df["Date"] != "Date"]
         df = df[pd.to_datetime(df["Date"], errors="coerce").notna()]
         df.reset_index(drop=True, inplace=True)
 
+        # Only rows marked with x
         df = df[df["Select"].astype(str).str.lower().fillna("") == "x"]
 
         if df.empty:
@@ -46,6 +49,7 @@ def process_uploaded_file():
         df["Open balance"] = df["Open balance"].replace(",", "", regex=True).astype(float)
         df["Class"] = class_input
 
+        # Separate bills and credits
         bills_df = df[df["Open balance"] > 0].copy()
         credits_df = df[df["Open balance"] < 0].copy()
 
@@ -63,16 +67,14 @@ def process_uploaded_file():
             return d
 
         if not bills_df.empty:
-            out_bills = format_output(bills_df)
-            st.session_state.bills.append(out_bills)
-            st.success(f"{len(out_bills)} bill(s) added for class: {class_input}")
+            st.session_state.bills.append(format_output(bills_df))
+            st.success(f"{len(bills_df)} bill(s) added for class: {class_input}")
 
         if not credits_df.empty:
-            out_credits = format_output(credits_df)
-            st.session_state.credits.append(out_credits)
-            st.success(f"{len(out_credits)} credit(s) added for class: {class_input}")
+            st.session_state.credits.append(format_output(credits_df))
+            st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Reset state for next file/class
+        # Clear inputs
         st.session_state.current_file = None
         st.session_state.current_class = ""
         st.rerun()
@@ -80,17 +82,18 @@ def process_uploaded_file():
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
-# Upload and input flow
-st.session_state.current_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key="current_file")
+# Upload file
+st.session_state.current_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key="uploader")
 
+# Class input triggers processing
 if st.session_state.current_file:
     st.text_input(
-        "Class for this aging:",
+        "Class for this aging (press Enter to submit):",
         key="current_class",
         on_change=process_uploaded_file
     )
 
-# Live preview of current session data
+# Live preview
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -108,7 +111,7 @@ if st.session_state.bills:
 if st.session_state.credits:
     st.download_button("📥 Download All Vendor Credits", data=all_credits.to_csv(index=False).encode("utf-8-sig"), file_name="all_credits.csv", mime="text/csv")
 
-# Reset button
+# Reset session
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
