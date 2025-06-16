@@ -10,75 +10,85 @@ if "bills" not in st.session_state:
     st.session_state.bills = []
 if "credits" not in st.session_state:
     st.session_state.credits = []
-if "upload_ready" not in st.session_state:
-    st.session_state.upload_ready = False
+if "current_file" not in st.session_state:
+    st.session_state.current_file = None
+if "current_class" not in st.session_state:
+    st.session_state.current_class = ""
 
-# Upload flow
-uploaded_file = st.file_uploader("Upload Excel Aging Report", type="xlsx")
+# Function to process uploaded aging
+def process_uploaded_file():
+    uploaded_file = st.session_state.current_file
+    class_input = st.session_state.current_class.strip()
 
-if uploaded_file:
-    st.session_state.upload_ready = True
+    if not uploaded_file or not class_input:
+        return
 
-if st.session_state.upload_ready:
-    class_input = st.text_input("Class for this aging:")
+    try:
+        df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
 
-    if class_input:
-        if st.button("✅ Submit Aging"):
-            try:
-                df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
+        if "Unnamed: 9" in df.columns:
+            df.rename(columns={"Unnamed: 9": "Select"}, inplace=True)
 
-                # Rename selection column if needed
-                if "Unnamed: 9" in df.columns:
-                    df.rename(columns={"Unnamed: 9": "Select"}, inplace=True)
+        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+        df = df[df["Date"] != "Date"]
+        df = df[pd.to_datetime(df["Date"], errors="coerce").notna()]
+        df.reset_index(drop=True, inplace=True)
 
-                df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-                df = df[df["Date"] != "Date"]
-                df = df[pd.to_datetime(df["Date"], errors="coerce").notna()]
-                df.reset_index(drop=True, inplace=True)
+        df = df[df["Select"].astype(str).str.lower().fillna("") == "x"]
 
-                df = df[df["Select"].astype(str).str.lower().fillna("") == "x"]
+        if df.empty:
+            st.warning("No rows marked with 'x'.")
+            return
 
-                if df.empty:
-                    st.warning("No rows marked with 'x'.")
-                else:
-                    if "Amount" in df.columns:
-                        df.drop(columns=["Amount"], inplace=True)
+        if "Amount" in df.columns:
+            df.drop(columns=["Amount"], inplace=True)
 
-                    df["Open balance"] = df["Open balance"].replace(",", "", regex=True).astype(float)
-                    df["Class"] = class_input
+        df["Open balance"] = df["Open balance"].replace(",", "", regex=True).astype(float)
+        df["Class"] = class_input
 
-                    bills_df = df[df["Open balance"] > 0].copy()
-                    credits_df = df[df["Open balance"] < 0].copy()
+        bills_df = df[df["Open balance"] > 0].copy()
+        credits_df = df[df["Open balance"] < 0].copy()
 
-                    def format_output(d):
-                        d = d.rename(columns={
-                            "Date": "BillDate",
-                            "Due date": "DueDate",
-                            "Open balance": "Amount",
-                            "Num": "RefNumber"
-                        })
-                        d = d[["Vendor display name", "BillDate", "DueDate", "Amount", "RefNumber", "Class"]]
-                        d = d.rename(columns={"Vendor display name": "Vendor"})
-                        d["BillDate"] = pd.to_datetime(d["BillDate"], errors="coerce").dt.strftime("%m/%d/%Y")
-                        d["DueDate"] = pd.to_datetime(d["DueDate"], errors="coerce").dt.strftime("%m/%d/%Y")
-                        return d
+        def format_output(d):
+            d = d.rename(columns={
+                "Date": "BillDate",
+                "Due date": "DueDate",
+                "Open balance": "Amount",
+                "Num": "RefNumber"
+            })
+            d = d[["Vendor display name", "BillDate", "DueDate", "Amount", "RefNumber", "Class"]]
+            d = d.rename(columns={"Vendor display name": "Vendor"})
+            d["BillDate"] = pd.to_datetime(d["BillDate"], errors="coerce").dt.strftime("%m/%d/%Y")
+            d["DueDate"] = pd.to_datetime(d["DueDate"], errors="coerce").dt.strftime("%m/%d/%Y")
+            return d
 
-                    if not bills_df.empty:
-                        out_bills = format_output(bills_df)
-                        st.session_state.bills.append(out_bills)
-                        st.success(f"{len(out_bills)} bill(s) added for class: {class_input}")
+        if not bills_df.empty:
+            out_bills = format_output(bills_df)
+            st.session_state.bills.append(out_bills)
+            st.success(f"{len(out_bills)} bill(s) added for class: {class_input}")
 
-                    if not credits_df.empty:
-                        out_credits = format_output(credits_df)
-                        st.session_state.credits.append(out_credits)
-                        st.success(f"{len(out_credits)} credit(s) added for class: {class_input}")
+        if not credits_df.empty:
+            out_credits = format_output(credits_df)
+            st.session_state.credits.append(out_credits)
+            st.success(f"{len(out_credits)} credit(s) added for class: {class_input}")
 
-                    # Reset uploader trigger
-                    st.session_state.upload_ready = False
-                    st.rerun()
+        # Reset state for next file/class
+        st.session_state.current_file = None
+        st.session_state.current_class = ""
+        st.rerun()
 
-            except Exception as e:
-                st.error(f"Error processing file: {e}")
+    except Exception as e:
+        st.error(f"Error processing file: {e}")
+
+# Upload and input flow
+st.session_state.current_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key="current_file")
+
+if st.session_state.current_file:
+    st.text_input(
+        "Class for this aging:",
+        key="current_class",
+        on_change=process_uploaded_file
+    )
 
 # Live preview of current session data
 if st.session_state.bills:
@@ -93,16 +103,15 @@ if st.session_state.credits:
 
 # Download buttons
 if st.session_state.bills:
-    all_bills = pd.concat(st.session_state.bills, ignore_index=True)
     st.download_button("📥 Download All Bills", data=all_bills.to_csv(index=False).encode("utf-8-sig"), file_name="all_bills.csv", mime="text/csv")
 
 if st.session_state.credits:
-    all_credits = pd.concat(st.session_state.credits, ignore_index=True)
     st.download_button("📥 Download All Vendor Credits", data=all_credits.to_csv(index=False).encode("utf-8-sig"), file_name="all_credits.csv", mime="text/csv")
 
+# Reset button
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
-    st.session_state.upload_ready = False
+    st.session_state.current_file = None
+    st.session_state.current_class = ""
     st.success("Session cleared.")
-
