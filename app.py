@@ -5,26 +5,29 @@ st.set_page_config(page_title="Multi-Client AP Aging")
 
 st.title("📂 Multi-Client AP Aging → Consolidated Bill & Credit Converter")
 
-# ---------- SESSION STATE SETUP ----------
+# Initialize session state
 if "bills" not in st.session_state:
     st.session_state.bills = []
 if "credits" not in st.session_state:
     st.session_state.credits = []
+if "current_class" not in st.session_state:
+    st.session_state.current_class = ""
+if "upload_complete" not in st.session_state:
+    st.session_state.upload_complete = False
+if "ready_for_class" not in st.session_state:
+    st.session_state.ready_for_class = False
 if "reset_uploader" not in st.session_state:
-    st.session_state.reset_uploader = 0
-if "show_upload_ui" not in st.session_state:
-    st.session_state.show_upload_ui = True
-if "pending_reset" not in st.session_state:
-    st.session_state.pending_reset = False
-
-# ---------- IMMEDIATE RERUN ON RESET ----------
-if st.session_state.pending_reset:
-    st.session_state.pending_reset = False
-    st.experimental_rerun()
+    st.session_state.reset_uploader = 0  # Used to trick Streamlit into clearing the uploader
 
 
-# ---------- PROCESSING FUNCTION ----------
-def process_uploaded_file(uploaded_file, class_input):
+# Processing function
+def process_uploaded_file():
+    uploaded_file = st.session_state["file_upload_" + str(st.session_state.reset_uploader)]
+    class_input = st.session_state.current_class.strip()
+
+    if not uploaded_file or not class_input:
+        return
+
     try:
         df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
 
@@ -72,53 +75,39 @@ def process_uploaded_file(uploaded_file, class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Prepare to rerun and reset form
-        st.session_state.show_upload_ui = False
+        # Clear inputs & trigger visual reset
+        st.session_state.current_class = ""
+        st.session_state.ready_for_class = False
+        st.session_state.upload_complete = True
         st.session_state.reset_uploader += 1
-        st.session_state.pending_reset = True
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
 
-# ---------- UPLOAD INTERFACE ----------
+# Upload prompt
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
-if st.session_state.show_upload_ui:
-    key_suffix = str(st.session_state.reset_uploader)
+# File uploader (resets via key trick)
+uploaded_file = st.file_uploader(
+    "Upload Excel Aging Report", 
+    type="xlsx", 
+    key="file_upload_" + str(st.session_state.reset_uploader)
+)
 
-    uploaded_file = st.file_uploader(
-        "Upload Excel Aging Report", type="xlsx", key=f"uploader_{key_suffix}"
+if uploaded_file:
+    st.session_state.ready_for_class = True
+
+# Class input only appears after file is uploaded
+if st.session_state.ready_for_class:
+    st.text_input(
+        "Class for this aging (press Enter to submit):",
+        key="current_class",
+        on_change=process_uploaded_file
     )
 
-    if uploaded_file:
-        selected_class = st.radio(
-            "Select class for this aging:",
-            options=["Auto Perfection", "KHI", "Land Quest", "Other"],
-            key=f"class_choice_{key_suffix}",
-            horizontal=True
-        )
-
-        custom_class = ""
-        if selected_class == "Other":
-            custom_class = st.text_input("Enter custom class name:", key=f"custom_input_{key_suffix}")
-
-        if st.button("✅ Submit Aging", key=f"submit_{key_suffix}"):
-            if selected_class == "Other":
-                if not custom_class.strip():
-                    st.warning("Please enter a custom class name.")
-                else:
-                    process_uploaded_file(uploaded_file, custom_class.strip())
-            else:
-                process_uploaded_file(uploaded_file, selected_class)
-
-else:
-    if st.button("➕ Add Another Aging"):
-        st.session_state.show_upload_ui = True
-
-
-# ---------- LIVE PREVIEW ----------
+# Live preview
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -129,29 +118,19 @@ if st.session_state.credits:
     all_credits = pd.concat(st.session_state.credits, ignore_index=True)
     st.dataframe(all_credits)
 
-
-# ---------- DOWNLOAD ----------
+# Download buttons
 if st.session_state.bills:
-    st.download_button(
-        "📥 Download All Bills",
-        data=all_bills.to_csv(index=False).encode("utf-8-sig"),
-        file_name="all_bills.csv",
-        mime="text/csv"
-    )
+    st.download_button("📥 Download All Bills", data=all_bills.to_csv(index=False).encode("utf-8-sig"), file_name="all_bills.csv", mime="text/csv")
 
 if st.session_state.credits:
-    st.download_button(
-        "📥 Download All Vendor Credits",
-        data=all_credits.to_csv(index=False).encode("utf-8-sig"),
-        file_name="all_credits.csv",
-        mime="text/csv"
-    )
+    st.download_button("📥 Download All Vendor Credits", data=all_credits.to_csv(index=False).encode("utf-8-sig"), file_name="all_credits.csv", mime="text/csv")
 
-
-# ---------- RESET EVERYTHING ----------
+# Reset session
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
+    st.session_state.current_class = ""
+    st.session_state.upload_complete = False
+    st.session_state.ready_for_class = False
     st.session_state.reset_uploader = 0
-    st.session_state.show_upload_ui = True
-    st.session_state.pending_reset = True
+    st.success("Session cleared.")
