@@ -70,7 +70,7 @@ if uploaded_file:
                     st.dataframe(out_credits)
 
                 # Clear upload after success so user can upload another
-                st.experimental_rerun()
+                st.rerun()
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
