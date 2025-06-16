@@ -65,7 +65,7 @@ def process_uploaded_file(uploaded_file, class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Flag to hide upload UI
+        # Hide form and increment reset flag
         st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
 
@@ -73,31 +73,30 @@ def process_uploaded_file(uploaded_file, class_input):
         st.error(f"Error processing file: {e}")
 
 
-# ---------- UPLOAD INTERFACE ----------
+# ---------- UPLOAD FORM ----------
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
 if st.session_state.show_upload_ui:
+    key_suffix = str(st.session_state.reset_uploader)
 
-    upload_key = "uploader_" + str(st.session_state.reset_uploader)
-    class_key = "class_choice_" + str(st.session_state.reset_uploader)
-    custom_key = "custom_input_" + str(st.session_state.reset_uploader)
-
-    uploaded_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key=upload_key)
+    uploaded_file = st.file_uploader(
+        "Upload Excel Aging Report", type="xlsx", key=f"uploader_{key_suffix}"
+    )
 
     if uploaded_file:
         selected_class = st.radio(
             "Select class for this aging:",
             options=["Auto Perfection", "KHI", "Land Quest", "Other"],
-            key=class_key,
+            key=f"class_choice_{key_suffix}",
             horizontal=True
         )
 
         custom_class = ""
         if selected_class == "Other":
-            custom_class = st.text_input("Enter custom class name:", key=custom_key)
+            custom_class = st.text_input("Enter custom class name:", key=f"custom_input_{key_suffix}")
 
-        if st.button("✅ Submit Aging"):
+        if st.button("✅ Submit Aging", key=f"submit_{key_suffix}"):
             if selected_class == "Other":
                 if not custom_class.strip():
                     st.warning("Please enter a custom class name.")
@@ -111,7 +110,7 @@ else:
         st.session_state.show_upload_ui = True
 
 
-# ---------- LIVE PREVIEW ----------
+# ---------- PREVIEW ----------
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -123,7 +122,7 @@ if st.session_state.credits:
     st.dataframe(all_credits)
 
 
-# ---------- DOWNLOADS ----------
+# ---------- DOWNLOAD ----------
 if st.session_state.bills:
     st.download_button(
         "📥 Download All Bills",
@@ -141,7 +140,7 @@ if st.session_state.credits:
     )
 
 
-# ---------- RESET BUTTON ----------
+# ---------- RESET ----------
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
