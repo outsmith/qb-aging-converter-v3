@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from streamlit import experimental_rerun
 
 st.set_page_config(page_title="Multi-Client AP Aging")
 
@@ -69,7 +68,7 @@ def process_uploaded_file(uploaded_file, class_input):
         # Reset upload interface and force rerun
         st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
-        experimental_rerun()
+        st.experimental_rerun()
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
