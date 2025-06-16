@@ -99,13 +99,24 @@ uploaded_file = st.file_uploader(
 if uploaded_file:
     st.session_state.ready_for_class = True
 
-# Class input only appears after file is uploaded
+# Class dropdown + optional custom input
 if st.session_state.ready_for_class:
-    st.text_input(
-        "Class for this aging (press Enter to submit):",
-        key="current_class",
-        on_change=process_uploaded_file
+    st.selectbox(
+        "Select class for this aging:",
+        options=["Auto Perfection", "KHI", "Land Quest", "Other"],
+        key="selected_class"
     )
+
+    if st.session_state.selected_class == "Other":
+        st.text_input(
+            "Enter custom class name:",
+            key="custom_class",
+            on_change=process_uploaded_file
+        )
+    else:
+        # Use preset class directly
+        st.session_state.current_class = st.session_state.selected_class
+        process_uploaded_file()
 
 # Live preview
 if st.session_state.bills:
