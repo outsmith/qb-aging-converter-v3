@@ -10,16 +10,19 @@ if "bills" not in st.session_state:
     st.session_state.bills = []
 if "credits" not in st.session_state:
     st.session_state.credits = []
-if "current_file" not in st.session_state:
-    st.session_state.current_file = None
 if "current_class" not in st.session_state:
     st.session_state.current_class = ""
 if "upload_complete" not in st.session_state:
     st.session_state.upload_complete = False
+if "ready_for_class" not in st.session_state:
+    st.session_state.ready_for_class = False
+if "reset_uploader" not in st.session_state:
+    st.session_state.reset_uploader = 0  # Used to trick Streamlit into clearing the uploader
+
 
 # Processing function
 def process_uploaded_file():
-    uploaded_file = st.session_state.current_file
+    uploaded_file = st.session_state["file_upload_" + str(st.session_state.reset_uploader)]
     class_input = st.session_state.current_class.strip()
 
     if not uploaded_file or not class_input:
@@ -72,26 +75,39 @@ def process_uploaded_file():
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Clear inputs
-        st.session_state.current_file = None
+        # Clear inputs & trigger visual reset
         st.session_state.current_class = ""
-        st.session_state.upload_complete = True  # trigger rerun
+        st.session_state.ready_for_class = False
+        st.session_state.upload_complete = True
+        st.session_state.reset_uploader += 1
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
-# Upload file
-st.session_state.current_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key="uploader")
 
-# Class input triggers processing
-if st.session_state.current_file:
+# Upload prompt
+if st.session_state.bills or st.session_state.credits:
+    st.markdown("### ➕ Add another AP aging report?")
+
+# File uploader (resets via key trick)
+uploaded_file = st.file_uploader(
+    "Upload Excel Aging Report", 
+    type="xlsx", 
+    key="file_upload_" + str(st.session_state.reset_uploader)
+)
+
+if uploaded_file:
+    st.session_state.ready_for_class = True
+
+# Class input only appears after file is uploaded
+if st.session_state.ready_for_class:
     st.text_input(
         "Class for this aging (press Enter to submit):",
         key="current_class",
         on_change=process_uploaded_file
     )
 
-# Show preview
+# Live preview
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -113,12 +129,8 @@ if st.session_state.credits:
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
-    st.session_state.current_file = None
     st.session_state.current_class = ""
     st.session_state.upload_complete = False
+    st.session_state.ready_for_class = False
+    st.session_state.reset_uploader = 0
     st.success("Session cleared.")
-
-# Perform rerun outside of callback
-if st.session_state.upload_complete:
-    st.session_state.upload_complete = False
-    st.rerun()
