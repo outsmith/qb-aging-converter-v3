@@ -12,21 +12,12 @@ if "credits" not in st.session_state:
     st.session_state.credits = []
 if "reset_uploader" not in st.session_state:
     st.session_state.reset_uploader = 0
-if "ready_for_class" not in st.session_state:
-    st.session_state.ready_for_class = False
-if "uploaded_file" not in st.session_state:
-    st.session_state.uploaded_file = None
-if "class_submitted" not in st.session_state:
-    st.session_state.class_submitted = False
+if "show_upload_ui" not in st.session_state:
+    st.session_state.show_upload_ui = True
 
 
 # ---------- PROCESSING FUNCTION ----------
-def process_uploaded_file(class_input):
-    uploaded_file = st.session_state.uploaded_file
-
-    if not uploaded_file or not class_input:
-        return
-
+def process_uploaded_file(uploaded_file, class_input):
     try:
         df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
 
@@ -74,57 +65,51 @@ def process_uploaded_file(class_input):
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Full reset for next round
-        st.session_state.uploaded_file = None
-        st.session_state.ready_for_class = False
-        st.session_state.class_submitted = False
+        # Reset upload interface
+        st.session_state.show_upload_ui = False
         st.session_state.reset_uploader += 1
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
 
 
-# ---------- FILE UPLOADER ----------
+# ---------- MULTI-UPLOAD LOOP ----------
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
-uploaded_file = st.file_uploader(
-    "Upload Excel Aging Report",
-    type="xlsx",
-    key="uploader_" + str(st.session_state.reset_uploader)
-)
+if st.session_state.show_upload_ui:
 
-if uploaded_file:
-    st.session_state.uploaded_file = uploaded_file
-    st.session_state.ready_for_class = True
-
-
-# ---------- CLASS SELECTION ----------
-if st.session_state.ready_for_class:
-    class_options = ["Auto Perfection", "KHI", "Land Quest", "Other"]
+    upload_key = "uploader_" + str(st.session_state.reset_uploader)
     class_key = "class_choice_" + str(st.session_state.reset_uploader)
     custom_key = "custom_input_" + str(st.session_state.reset_uploader)
 
-    selected_class = st.radio(
-        "Select class for this aging:",
-        options=class_options,
-        key=class_key,
-        horizontal=True
-    )
+    uploaded_file = st.file_uploader("Upload Excel Aging Report", type="xlsx", key=upload_key)
 
-    custom_class_input = ""
-    if selected_class == "Other":
-        custom_class_input = st.text_input("Enter custom class name:", key=custom_key)
+    if uploaded_file:
+        selected_class = st.radio(
+            "Select class for this aging:",
+            options=["Auto Perfection", "KHI", "Land Quest", "Other"],
+            key=class_key,
+            horizontal=True
+        )
 
-    if st.button("✅ Submit Aging"):
-        st.session_state.class_submitted = True
+        custom_class = ""
         if selected_class == "Other":
-            if not custom_class_input.strip():
-                st.warning("Please enter a custom class name.")
+            custom_class = st.text_input("Enter custom class name:", key=custom_key)
+
+        if st.button("✅ Submit Aging"):
+            if selected_class == "Other":
+                if not custom_class.strip():
+                    st.warning("Please enter a custom class name.")
+                else:
+                    process_uploaded_file(uploaded_file, custom_class.strip())
             else:
-                process_uploaded_file(custom_class_input.strip())
-        else:
-            process_uploaded_file(selected_class)
+                process_uploaded_file(uploaded_file, selected_class)
+
+else:
+    # Reset UI flag to allow next upload
+    if st.button("➕ Add Another Aging"):
+        st.session_state.show_upload_ui = True
 
 
 # ---------- LIVE PREVIEW ----------
@@ -161,8 +146,6 @@ if st.session_state.credits:
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
-    st.session_state.uploaded_file = None
     st.session_state.reset_uploader = 0
-    st.session_state.ready_for_class = False
-    st.session_state.class_submitted = False
+    st.session_state.show_upload_ui = True
     st.success("Session cleared.")
