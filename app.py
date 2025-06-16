@@ -104,22 +104,28 @@ if uploaded_file:
 
 # ---------- CLASS SELECTION ----------
 if st.session_state.ready_for_class:
+    class_key = "selected_class_" + str(st.session_state.reset_uploader)
+    custom_key = "custom_class_" + str(st.session_state.reset_uploader)
+
     selected_class = st.selectbox(
         "Select class for this aging:",
         options=["Auto Perfection", "KHI", "Land Quest", "Other"],
-        key="selected_class_" + str(st.session_state.reset_uploader)
+        key=class_key
     )
 
-    if selected_class == "Other":
-        st.text_input(
-            "Enter custom class name:",
-            key="custom_class_" + str(st.session_state.reset_uploader),
-            on_change=lambda: process_uploaded_file(
-                st.session_state.get("custom_class_" + str(st.session_state.reset_uploader), "").strip()
-            )
-        )
-    else:
-        process_uploaded_file(selected_class)
+    if st.session_state[class_key] == "Other":
+        st.text_input("Enter custom class name:", key=custom_key)
+
+    if st.button("✅ Submit Aging"):
+        if st.session_state[class_key] == "Other":
+            custom_val = st.session_state.get(custom_key, "").strip()
+            if custom_val:
+                process_uploaded_file(custom_val)
+            else:
+                st.warning("Please enter a custom class name.")
+        else:
+            process_uploaded_file(st.session_state[class_key])
+
 
 
 # ---------- LIVE PREVIEW ----------
