@@ -14,6 +14,8 @@ if "current_file" not in st.session_state:
     st.session_state.current_file = None
 if "current_class" not in st.session_state:
     st.session_state.current_class = ""
+if "upload_complete" not in st.session_state:
+    st.session_state.upload_complete = False
 
 # Processing function
 def process_uploaded_file():
@@ -26,17 +28,14 @@ def process_uploaded_file():
     try:
         df = pd.read_excel(uploaded_file, sheet_name=0, header=4)
 
-        # Rename "Select" column if unnamed
         if "Unnamed: 9" in df.columns:
             df.rename(columns={"Unnamed: 9": "Select"}, inplace=True)
 
-        # Remove extra columns and rows
         df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
         df = df[df["Date"] != "Date"]
         df = df[pd.to_datetime(df["Date"], errors="coerce").notna()]
         df.reset_index(drop=True, inplace=True)
 
-        # Only rows marked with x
         df = df[df["Select"].astype(str).str.lower().fillna("") == "x"]
 
         if df.empty:
@@ -49,7 +48,6 @@ def process_uploaded_file():
         df["Open balance"] = df["Open balance"].replace(",", "", regex=True).astype(float)
         df["Class"] = class_input
 
-        # Separate bills and credits
         bills_df = df[df["Open balance"] > 0].copy()
         credits_df = df[df["Open balance"] < 0].copy()
 
@@ -77,7 +75,7 @@ def process_uploaded_file():
         # Clear inputs
         st.session_state.current_file = None
         st.session_state.current_class = ""
-        st.rerun()
+        st.session_state.upload_complete = True  # trigger rerun
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
@@ -93,7 +91,7 @@ if st.session_state.current_file:
         on_change=process_uploaded_file
     )
 
-# Live preview
+# Show preview
 if st.session_state.bills:
     st.subheader("🧾 All Bills Added So Far")
     all_bills = pd.concat(st.session_state.bills, ignore_index=True)
@@ -117,4 +115,10 @@ if st.button("🔁 Reset Everything"):
     st.session_state.credits = []
     st.session_state.current_file = None
     st.session_state.current_class = ""
+    st.session_state.upload_complete = False
     st.success("Session cleared.")
+
+# Perform rerun outside of callback
+if st.session_state.upload_complete:
+    st.session_state.upload_complete = False
+    st.rerun()
