@@ -16,8 +16,6 @@ if "ready_for_class" not in st.session_state:
     st.session_state.ready_for_class = False
 if "upload_complete" not in st.session_state:
     st.session_state.upload_complete = False
-if "selected_class" not in st.session_state:
-    st.session_state.selected_class = ""
 if "custom_class" not in st.session_state:
     st.session_state.custom_class = ""
 if "uploaded_file" not in st.session_state:
@@ -25,14 +23,8 @@ if "uploaded_file" not in st.session_state:
 
 
 # ---------- PROCESSING FUNCTION ----------
-def process_uploaded_file():
+def process_uploaded_file(class_input):
     uploaded_file = st.session_state.uploaded_file
-
-    # Determine class name
-    if st.session_state.selected_class == "Other":
-        class_input = st.session_state.custom_class.strip()
-    else:
-        class_input = st.session_state.selected_class
 
     if not uploaded_file or not class_input:
         return
@@ -84,10 +76,9 @@ def process_uploaded_file():
             st.session_state.credits.append(format_output(credits_df))
             st.success(f"{len(credits_df)} credit(s) added for class: {class_input}")
 
-        # Reset everything for next upload
+        # Reset for next round
         st.session_state.uploaded_file = None
         st.session_state.custom_class = ""
-        st.session_state.selected_class = ""
         st.session_state.ready_for_class = False
         st.session_state.upload_complete = True
         st.session_state.reset_uploader += 1
@@ -96,7 +87,7 @@ def process_uploaded_file():
         st.error(f"Error processing file: {e}")
 
 
-# ---------- FILE UPLOAD ----------
+# ---------- FILE UPLOADER ----------
 if st.session_state.bills or st.session_state.credits:
     st.markdown("### ➕ Add another AP aging report?")
 
@@ -113,20 +104,22 @@ if uploaded_file:
 
 # ---------- CLASS SELECTION ----------
 if st.session_state.ready_for_class:
-    st.selectbox(
+    selected_class = st.selectbox(
         "Select class for this aging:",
         options=["Auto Perfection", "KHI", "Land Quest", "Other"],
-        key="selected_class"
+        key="selected_class_" + str(st.session_state.reset_uploader)
     )
 
-    if st.session_state.selected_class == "Other":
+    if selected_class == "Other":
         st.text_input(
             "Enter custom class name:",
-            key="custom_class",
-            on_change=process_uploaded_file
+            key="custom_class_" + str(st.session_state.reset_uploader),
+            on_change=lambda: process_uploaded_file(
+                st.session_state.get("custom_class_" + str(st.session_state.reset_uploader), "").strip()
+            )
         )
-    elif st.session_state.selected_class:
-        process_uploaded_file()
+    else:
+        process_uploaded_file(selected_class)
 
 
 # ---------- LIVE PREVIEW ----------
@@ -159,7 +152,7 @@ if st.session_state.credits:
     )
 
 
-# ---------- RESET SESSION ----------
+# ---------- RESET EVERYTHING ----------
 if st.button("🔁 Reset Everything"):
     st.session_state.bills = []
     st.session_state.credits = []
@@ -167,6 +160,5 @@ if st.button("🔁 Reset Everything"):
     st.session_state.reset_uploader = 0
     st.session_state.ready_for_class = False
     st.session_state.upload_complete = False
-    st.session_state.selected_class = ""
     st.session_state.custom_class = ""
     st.success("Session cleared.")
